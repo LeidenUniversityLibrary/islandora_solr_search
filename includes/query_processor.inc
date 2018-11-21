@@ -354,6 +354,21 @@ class IslandoraSolrQueryProcessor {
         // request handler.
         $this->solrParams['qf'] = variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type');
       }
+      $dismaxoptions = array(
+        'pf' => 'islandora_solr_phrase_fields',
+        'qf' => 'islandora_solr_query_phrase_slop',
+        'mm' => 'islandora_solr_minimum_should_match',
+        'ps' => 'islandora_solr_phrase_slop',
+        'tie' => 'islandora_solr_tie_breaker',
+        'bq' => 'islandora_solr_boost_query',
+        'bf' => 'islandora_solr_boost_functions',
+      );
+      foreach ($dismaxoptions as $solrparam => $varname) {
+         $value = variable_get($varname, FALSE);
+         if ($value !== FALSE && strlen($value) > 0) {
+           $this->solrParams[$solrparam] = $value;
+         }
+      }
     }
 
     // Invoke a hook for third-party modules to alter the parameters.

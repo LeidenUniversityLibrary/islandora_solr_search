@@ -619,22 +619,94 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#default_value' => variable_get('islandora_solr_base_filter', ''),
     '#wysiwyg' => FALSE,
   );
-  $form['islandora_solr_tabs']['query_defaults']['islandora_solr_query_fields'] = array(
-    '#type' => 'textarea',
-    '#title' => t('Query fields'),
-    '#default_value' => variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type'),
-    '#description' => t('Query fields to use for DisMax (simple) searches. See the QueryFields section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
-      '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
-    )),
-  );
-  $form['islandora_solr_tabs']['query_defaults']['islandora_solr_use_ui_qf'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Prefer defined query fields?'),
-    '#default_value' => variable_get('islandora_solr_use_ui_qf', FALSE),
-    '#description' => t('Use the above "@qf" by default; otherwise, they will only be used as a fallback in the case there are none defined in the selected request handler.', array(
-      '@qf' => t('Query fields'),
-    )),
-  );
+
+  // Dismax settings.
+  if (variable_get('islandora_solr_dismax_allowed', TRUE)) {
+    $form['islandora_solr_tabs']['dismax_settings'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Dismax settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_query_fields'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Query fields'),
+      '#default_value' => variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type'),
+      '#description' => t('Query fields to use for DisMax (simple) searches with there boosting factor. Only these fields are used for searching, so define all the fields needed and/or a field that catches all data (like catch_all_fields_mt). See the qf section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_use_ui_qf'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Prefer defined query fields?'),
+      '#default_value' => variable_get('islandora_solr_use_ui_qf', FALSE),
+      '#description' => t('Use the above "@qf" by default; otherwise, they will only be used as a fallback in the case there are none defined in the selected request handler.', array(
+        '@qf' => t('Query fields'),
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_query_phrase_slop'] = array(
+      '#type' => 'textfield',
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#title' => t('Query phrase slop'),
+      '#default_value' => variable_get('islandora_solr_query_phrase_slop', ''),
+      '#description' => t('Specifies the number of positions two terms can be apart in order to match the specified phrase. Used specifically with the qf parameter. Leave empty if you want to use the fallback defined for the selected request handler. See the qs section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_phrase_fields'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Phrase fields'),
+      '#default_value' => variable_get('islandora_solr_phrase_fields', ''),
+      '#description' => t('Phrase fields to use for DisMax (simple) searches. Leave empty if you want to use the fallback defined for the selected request handler. See the pf section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_minimum_should_match'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Minimum "should" match'),
+      '#default_value' => variable_get('islandora_solr_minimum_should_match', ''),
+      '#description' => t('Specifies a minimum number of fields that must match in a query for DisMax (simple) searches. Leave empty if you want to use the fallback defined for the selected request handler. See the mm section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_phrase_slop'] = array(
+      '#type' => 'textfield',
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#title' => t('Phrase slop'),
+      '#default_value' => variable_get('islandora_solr_phrase_slop', ''),
+      '#description' => t('Specifies the number of positions two terms can be apart in order to match the specified phrase. Leave empty if you want to use the fallback defined for the selected request handler. See the ps section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_tie_breaker'] = array(
+      '#type' => 'textfield',
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#title' => t('Tie breaker'),
+      '#default_value' => variable_get('islandora_solr_tie_breaker', ''),
+      '#description' => t('Specifies a float value (which should be something much less than 1) to use as tiebreaker in DisMax queries. Leave empty if you want to use the fallback defined for the selected request handler. See the tie section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_boost_query'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Boost query'),
+      '#default_value' => variable_get('islandora_solr_boost_query', ''),
+      '#description' => t('Specifies an additional, optional, query clause that will be added to the main query to influence the score. Leave empty if you want to use the fallback defined for the selected request handler. See the bq section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+    $form['islandora_solr_tabs']['dismax_settings']['islandora_solr_boost_functions'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Boost functions'),
+      '#default_value' => variable_get('islandora_solr_boost_functions', ''),
+      '#description' => t('Specifies functions (with optional boosts) that will be used to construct FunctionQueries which will be added to the main query as optional clauses that will influence the score. Leave empty if you want to use the fallback defined for the selected request handler. See the bf section in the <a href="@url" target="_blank" title="Solr documentation">Solr documentation</a> for examples.', array(
+        '@url' => 'http://archive.apache.org/dist/lucene/solr/ref-guide/',
+      )),
+    );
+  }
 
   // Required Solr fields.
   $form['islandora_solr_tabs']['required_solr_fields'] = array(
@@ -1278,6 +1350,16 @@ function _islandora_solr_admin_settings_validate($form, &$form_state) {
   $limits = explode(',', $form_state['values']['islandora_solr_num_of_results_advanced']);
   $form_state['values']['islandora_solr_num_of_results_advanced'] = array_filter(array_map('trim', $limits), 'is_numeric');
   $form_state['values']['islandora_solr_namespace_restriction'] = preg_replace('/:$/', '', $form_state['values']['islandora_solr_namespace_restriction']);
+
+  if (preg_match('/^\d*$/', $form_state['values']['islandora_solr_query_phrase_slop']) !== 1) {
+    form_set_error('islandora_solr_query_phrase_slop', t("Query phrase slop should be a number."));
+  }
+  if (preg_match('/^\d*$/', $form_state['values']['islandora_solr_phrase_slop']) !== 1) {
+    form_set_error('islandora_solr_phrase_slop', t("Phrase slop should be a number."));
+  }
+  if (preg_match('/^(?:0\.\d+|1.0|)$/', $form_state['values']['islandora_solr_tie_breaker']) !== 1) {
+    form_set_error('islandora_solr_tie_breaker', t("Tie breaker should be a float value between 0.0 and 1.0."));
+  }
 }
 
 /**
