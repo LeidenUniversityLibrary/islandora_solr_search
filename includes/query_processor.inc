@@ -364,10 +364,10 @@ class IslandoraSolrQueryProcessor {
         'bf' => 'islandora_solr_boost_functions',
       );
       foreach ($dismaxoptions as $solrparam => $varname) {
-         $value = variable_get($varname, FALSE);
-         if ($value !== FALSE && strlen($value) > 0) {
-           $this->solrParams[$solrparam] = $value;
-         }
+        $value = variable_get($varname, FALSE);
+        if ($value !== FALSE && strlen($value) > 0) {
+          $this->solrParams[$solrparam] = $value;
+        }
       }
     }
 
