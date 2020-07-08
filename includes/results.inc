@@ -267,7 +267,12 @@ class IslandoraSolrResults {
         else {
           $symbol = '=';
         }
-        $filter_string = $this->formatFilter($filter, $islandora_solr_query);
+        if (strpos($filter, 'related_mods_accessCondition_type_ms') !== FALSE) {
+          $filter_string = 'Open access';
+        }
+        else {
+          $filter_string = $this->formatFilter($filter, $islandora_solr_query);
+        }
         // Pull out filter (for exclude link).
         $query_minus = array();
         $f_x['f'] = array_diff($params['f'], array($filter));
@@ -530,8 +535,8 @@ class IslandoraSolrResults {
       // Split the filter into field and value.
       $filter_split = preg_split(ISLANDORA_SOLR_QUERY_FIELD_VALUE_SPLIT_REGEX, $filter, 2);
       // Trim brackets.
-      $filter_split[1] = trim($filter_split[1], "\"");
-      $solr_field = ltrim($filter_split[0], '-');
+      $filter_split[1] = trim($filter_split[1], "\")");
+      $solr_field = ltrim($filter_split[0], '-(');
       // If value is date.
       if (isset($islandora_solr_query->solrParams['facet.date']) && in_array($solr_field, $islandora_solr_query->solrParams['facet.date'])) {
         // Check date format setting.
@@ -664,6 +669,8 @@ class IslandoraSolrFacets {
   // Date or integer range facet results (Solr 3.1).
   public static $facet_ranges;
 
+  public static $facet_queries;
+
   public static $facet_fields_settings;
   public static $facet_fields_settings_simple;
   // Rename?
@@ -718,6 +725,7 @@ class IslandoraSolrFacets {
   public static function init($islandora_solr_query) {
     self::$islandoraSolrQuery = $islandora_solr_query;
     self::$facet_fields = isset($islandora_solr_query->islandoraSolrResult) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields'] : array();
+    self::$facet_queries = isset($islandora_solr_query->islandoraSolrResult) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries'] : array();
     // XXX: isset() checking, as newer Solrs (7) won't return a value.
     self::$facet_dates = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates'] : array();
     // XXX: isset() checking, as older Solrs (before 3.1) won't return a value.
@@ -811,6 +819,9 @@ class IslandoraSolrFacets {
     if ($facet_type == 'facet_ranges') {
       $this->results = self::$facet_ranges[$facet_field];
     }
+    if ($facet_field === 'related_mods_accessCondition_type_ms') {
+      $this->results = array('Open access' => reset(self::$facet_queries));
+    }
   }
 
   /**
@@ -822,6 +833,18 @@ class IslandoraSolrFacets {
    */
   public function processFacets() {
     $facet_type = $this->facet_type;
+    if ($this->facet_field === 'related_mods_accessCondition_type_ms') {
+      $prepared_facet_fields = array();
+      $count2query = array_flip(self::$facet_queries);
+      foreach ($this->results as $title => $count) {
+        $prepared_facet_fields[] = array(
+          'count' => $count,
+          'filter' => $count2query[$count],
+          'bucket' => $title,
+        );
+      };
+      $this->renderText($prepared_facet_fields);
+    }
     if ($facet_type == 'facet_fields') {
       $this->processFacetFields();
     }
@@ -1058,7 +1081,7 @@ class IslandoraSolrFacets {
       }
       // Merge recursively to add new filter parameter.
       $query_plus = array_merge_recursive($params, array('f' => array($filter)));
-      $query_minus = array_merge_recursive($params, array('f' => array('-' . $filter)));
+      $query_minus = array_merge_recursive($params, array('f' => array('-(' . $filter . ')')));
 
       // Set basic attributes.
       $attributes = array(
