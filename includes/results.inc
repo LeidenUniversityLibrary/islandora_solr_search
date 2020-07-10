@@ -253,9 +253,17 @@ class IslandoraSolrResults {
       $output .= '</div>';
 
     }
-
     // Get filter values.
     if (!empty($fq)) {
+      $filter2facetquery = array();
+      foreach ($this->facetFieldSettings as $facetfield => $settings) {
+        if (isset($settings['solr_field_settings']['facet_queries'])) {
+          foreach ($settings['solr_field_settings']['facet_queries'] as $label => $query) {
+            $filter2facetquery[$query] = $label;
+            $filter2facetquery["-($query)"] = $label;
+          }
+        }
+      } 
       // Set list variables.
       $filter_list = array();
       foreach ($fq as $key => $filter) {
@@ -267,8 +275,8 @@ class IslandoraSolrResults {
         else {
           $symbol = '=';
         }
-        if (strpos($filter, 'related_mods_accessCondition_type_ms') !== FALSE) {
-          $filter_string = 'Open access';
+        if (isset($filter2facetquery[$filter])) {
+          $filter_string = $filter2facetquery[$filter];
         }
         else {
           $filter_string = $this->formatFilter($filter, $islandora_solr_query);
@@ -800,6 +808,9 @@ class IslandoraSolrFacets {
       $this->facet_type = 'facet_ranges';
       $this->date_range = islandora_solr_is_date_field($facet_field);
     }
+    if ($this->facet_type === NULL && isset($this->settings['solr_field_settings']['facet_queries'])) {
+      $this->facet_type = 'facet_queries';
+    }
   }
 
   /**
@@ -819,8 +830,15 @@ class IslandoraSolrFacets {
     if ($facet_type == 'facet_ranges') {
       $this->results = self::$facet_ranges[$facet_field];
     }
-    if ($facet_field === 'related_mods_accessCondition_type_ms') {
-      $this->results = array('Open access' => reset(self::$facet_queries));
+    if ($facet_type == 'facet_queries') {
+      $query2label = array_flip($this->settings['solr_field_settings']['facet_queries']);
+      $results = array();
+      foreach (self::$facet_queries as $query => $count) {
+        if (isset($query2label[$query])) {
+          $results[$query2label[$query]] = $count;
+        }
+      }
+      $this->results = $results;
     }
   }
 
@@ -833,18 +851,6 @@ class IslandoraSolrFacets {
    */
   public function processFacets() {
     $facet_type = $this->facet_type;
-    if ($this->facet_field === 'related_mods_accessCondition_type_ms') {
-      $prepared_facet_fields = array();
-      $count2query = array_flip(self::$facet_queries);
-      foreach ($this->results as $title => $count) {
-        $prepared_facet_fields[] = array(
-          'count' => $count,
-          'filter' => $count2query[$count],
-          'bucket' => $title,
-        );
-      };
-      $this->renderText($prepared_facet_fields);
-    }
     if ($facet_type == 'facet_fields') {
       $this->processFacetFields();
     }
@@ -854,6 +860,9 @@ class IslandoraSolrFacets {
     }
     if ($facet_type == 'facet_ranges') {
       $this->processFacetRanges();
+    }
+    if ($facet_type == 'facet_queries') {
+      $this->processFacetQueries();
     }
   }
 
@@ -913,6 +922,21 @@ class IslandoraSolrFacets {
    */
   public function processFacetRanges() {
 
+  }
+
+  /**
+   * Process facet queries.
+   */
+  public function processFacetQueries() {
+    $prepared_facet_fields = array();
+    foreach ($this->results as $title => $count) {
+      $prepared_facet_fields[] = array(
+        'count' => $count,
+        'filter' => $this->settings['solr_field_settings']['facet_queries'][$title],
+        'bucket' => $title,
+      );
+    };
+    $this->renderText($prepared_facet_fields);
   }
 
   /**

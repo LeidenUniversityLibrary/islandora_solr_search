@@ -918,6 +918,15 @@ function islandora_solr_admin_settings_fields(&$form_state, &$terms, $field_type
     foreach ($records as $key => $value) {
       $solr_field = $value['solr_field'];
       $solr_field_settings = $value['solr_field_settings'];
+      if (isset($solr_field_settings['facet_queries']) && !empty($solr_field_settings['facet_queries'])) {
+        $solr_field_settings['facet_query_select'] = TRUE; 
+        $facetquerystring = '';
+        foreach ($solr_field_settings['facet_queries'] as $label => $query) {
+          $facetquerystring .= $label . ' => ' . $query . "\n";
+        }
+        $solr_field_settings['facet_query_string'] = $facetquerystring;
+        unset($solr_field_settings['facet_queries']);
+      }
       $form_state['solr_field_settings']['islandora_solr_' . $field_type][$solr_field] = $solr_field_settings;
     }
   }
@@ -1371,7 +1380,6 @@ function _islandora_solr_admin_settings_validate($form, &$form_state) {
  *   The form state.
  */
 function _islandora_solr_admin_settings_submit($form, &$form_state) {
-
   // If this function is called not using submit or reset buttons.
   if ($form_state['clicked_button']['#id'] != 'edit-submit' && $form_state['clicked_button']['#id'] != 'edit-reset') {
     $form_state['rebuild'] = TRUE;
@@ -1450,6 +1458,22 @@ function _islandora_solr_admin_settings_submit($form, &$form_state) {
                   i18n_string_remove("islandora_solr:field_settings:$field_type:$string_type:$solr_field");
                 }
               }
+            }
+            if (isset($solr_field_settings['facet_query_select'], $solr_field_settings['facet_query_string'])) {
+              if ($solr_field_settings['facet_query_select']) {
+                $facetquerystring = $solr_field_settings['facet_query_string'];
+                $facetitems = preg_split('/[\r\n]+/', $facetquerystring);
+                $facet_queries = array();
+                foreach ($facetitems as $item) {
+                  $parts = preg_split('/\\s*=>\\s*/', $item, 2);
+                  if ($parts !== FALSE && !empty($parts) && count($parts) == 2) {
+                    $facet_queries[$parts[0]] = $parts[1];
+                  }
+                }
+                $solr_field_settings['facet_queries'] = $facet_queries;
+              }
+              unset($solr_field_settings['facet_query_select']);
+              unset($solr_field_settings['facet_query_string']);
             }
             $insert_values[] = array(
               'solr_field' => $solr_field,
@@ -1749,8 +1773,60 @@ function _islandora_solr_admin_settings_field_configure($form, &$form_state) {
 function _islandora_solr_admin_settings_dialog($form, &$form_state) {
 
   $dialog_id = $form_state['dialog']['dialog_id'];
-
   $commands = array();
+
+  if (isset($form_state['input']['facet_query_select']) && $form_state['input']['facet_query_select']) {
+    $error = NULL;
+    $facetquerystring = $form_state['input']['facet_query_string'];
+    $facetitems = preg_split('/[\r\n]+/', $facetquerystring);
+    $facetlabels = array();
+    $facetqueries = array();
+    foreach ($facetitems as $item) {
+      if (strlen(trim($item)) > 0) {
+        $parts = preg_split('/\\s*=>\\s*/', $item, 2);
+        if ($parts !== FALSE && !empty($parts) && count($parts) == 2) {
+          if (strlen(trim($parts[0])) === 0) {
+            $error = t("The line '%item' does not contain a valid label.", array('%item' => $item));
+          }
+          elseif (strlen(trim($parts[1])) === 0) {
+            $error = t("The line '%item' does not contain a query.", array('%item' => $item));
+          }
+          elseif (isset($facetlabels[$parts[0]])) {
+            $error = t("The label '%label' is already in use.", array('%label' => $parts[0]));
+          }
+          elseif (isset($facetqueries[$parts[1]])) {
+            $error = t("The query '%query' is already in use.", array('%query' => $parts[1]));
+          }
+          else {
+            $qp = new IslandoraSolrQueryProcessor();
+            $qp->buildQuery($parts[1]);
+            $qp->solrParams['fq'] = array();
+            $qp->executeQuery(FALSE);
+            $r = $qp->islandoraSolrResult;
+            if ($r === NULL) {
+              $error = t("The query '%query' is not a valid Solr query.", array('%query' => $parts[1]));
+            }
+            elseif ($r['response']['numFound'] === 0) {
+              $error = t("The query '%query' does not give any results.", array('%query' => $parts[1]));
+            }
+          }
+          $facetlabels[$parts[0]] = $parts[1];
+          $facetqueries[$parts[1]] = $parts[0];
+        }
+        else {
+          $error = t("The line '%item' is not valid.", array('%item' => $item));
+        }
+      }
+    }
+
+    if ($error) {
+      $commands[] = ajax_command_invoke('#edit-facet-query-string', 'addClass', array('error'));
+      $commands[] = ajax_command_invoke('#edit-facet-query-error', 'remove');
+      $commands[] = ajax_command_invoke('#edit-facet-query-string', 'before', array('<DIV id="edit-facet-query-error">' . $error . '</DIV>'));
+      return array('#type' => 'ajax', '#commands' => $commands);
+    }
+  }
+
   // Close dialog.
   $commands[] = ajax_command_invoke('#islandora-solr-admin-dialog', 'dialog', array('close'));
 
@@ -1822,6 +1898,8 @@ function _islandora_solr_handle_solr_field_settings($solr_field_settings = NULL,
           'boolean_facet_true_replacement',
           'boolean_facet_false_replacement',
           'sort_by',
+          'facet_query_select',
+          'facet_query_string',
         ));
         $relevant_values = array_intersect_key($solr_field_settings, $fields);
         $relevant_values['label'] = isset($relevant_values['label']) ?
@@ -2328,6 +2406,27 @@ function islandora_solr_admin_settings_facet_fields($form, &$form_state, $variab
         '#default_value' => $values['boolean_facet_false_replacement'],
       ),
     );
+  }
+  else {
+    $form['options']['facet_query_select'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Use facet query'),
+      '#default_value' => $values['facet_query_select'],
+      '#description' => t('Toggles whether this facet field should be configured with facet queries.'),
+    );
+
+    $form['options']['facet_query_string'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Facet queries'),
+      '#default_value' => $values['facet_query_string'],
+      '#description' => t("Enter the facet queries for the different facet items. Each line represents a facet item, that consists of the name of the facet item followed by => and then the Solr query.\nE.g. for a facet on different namespaces one might use:\nNamespace islandora => PID:islandora\:*\nNamespace default => PID:default\:*"),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="facet_query_select"]' => array('checked' => TRUE),
+        ),
+      ),
+    );
+
   }
 
   // Permissions.

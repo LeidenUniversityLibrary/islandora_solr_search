@@ -203,22 +203,17 @@ class IslandoraSolrQueryProcessor {
 
     // Set facet parameters.
     $facet_array = islandora_solr_get_fields('facet_fields', TRUE, FALSE, TRUE);
-    $facet_query = NULL;
-    $accessfield = 'related_mods_accessCondition_type_ms';
-    if (isset($facet_array[$accessfield])) {
-      $openq = $accessfield . ':"info:eu-repo\/semantics\/openAccess"';
-      $closedq = $accessfield . ':"info:eu-repo\/semantics\/closedAccess"';
-      $embargoq = $accessfield . ':"info:eu-repo\/semantics\/embargoedAccess"';
-      $embdatef = 'related_mods_originInfo_encoding_w3cdtf_type_embargo_dateOther_mdt';
-   
-      $facet_query = "$openq OR ($embargoq AND $embdatef:[* TO NOW])";
-  
-      $tmp_facet_array = $facet_array;
-      unset($tmp_facet_array['related_mods_accessCondition_type_ms']);
-      $facet_fields = implode(",", array_keys($tmp_facet_array));
-    }
-    else {
-      $facet_fields = implode(",", array_keys($facet_array));
+    $facet_fields = array();
+    $facet_queries = array();
+    foreach ($facet_array as $field => $options) {
+      if (isset($options['solr_field_settings']['facet_queries'])) {
+        foreach ($options['solr_field_settings']['facet_queries'] as $label => $query) {
+          $facet_queries[] = $query;
+        }
+      }
+      else {
+        $facet_fields[] = $field;
+      }
     }
 
     // Set params.
@@ -226,10 +221,10 @@ class IslandoraSolrQueryProcessor {
       'facet' => 'true',
       'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
       'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
-      'facet.field' => explode(',', $facet_fields),
+      'facet.field' => $facet_fields,
     );
-    if (isset($facet_query)) {
-      $params_array['facet.query'] = $facet_query;
+    if (isset($facet_queries)) {
+      $params_array['facet.query'] = $facet_queries;
     }
     $request_handler = variable_get('islandora_solr_request_handler', FALSE);
     if ($request_handler) {
