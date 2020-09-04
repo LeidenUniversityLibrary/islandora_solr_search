@@ -387,6 +387,10 @@ function islandora_solr_prepare_solr_results($solr_results) {
         };
         $value = array_map($pid_to_label_mapper, (array) $value);
       }
+
+      // Prevent cross site scripting vulnerabilities.
+      $value = array_map('filter_xss', $value);
+
       // Truncate value lengths before linking, avoids destroying link tags.
       if (array_key_exists($field, $truncate_length) && $truncate_length[$field]['maximum_length'] > 0 && (!isset($truncate_length[$field]['truncation_type']) || $truncate_length[$field]['truncation_type'] == 'separate_value_option')) {
         // Coder tends to not like inline anonymous functions.

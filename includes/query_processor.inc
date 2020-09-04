@@ -217,13 +217,18 @@ class IslandoraSolrQueryProcessor {
     }
 
     // Set params.
-    $params_array = array(
-      'facet' => 'true',
-      'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
-      'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
-      'facet.field' => $facet_fields,
-    );
-    if (isset($facet_queries)) {
+    if (count($facet_array) > 0 || count($facet_queries) > 0) {
+      $params_array = array(
+        'facet' => 'true',
+        'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
+        'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
+        'facet.field' => $facet_fields,
+      );
+    }
+    else {
+      $params_array = array();
+    }
+    if (count($facet_queries) > 0) {
       $params_array['facet.query'] = $facet_queries;
     }
     $request_handler = variable_get('islandora_solr_request_handler', FALSE);
@@ -422,7 +427,7 @@ class IslandoraSolrQueryProcessor {
       $results = $solr->search($solr_query, $this->solrStart, $this->solrLimit, $this->solrParams, $method);
     }
     catch (Exception $e) {
-      drupal_set_message(check_plain(t('Error searching Solr index')) . ' ' . $e->getMessage(), 'error');
+      islandora_solr_technical_difficulties($e);
     }
 
     $object_results = array();

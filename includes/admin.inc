@@ -153,6 +153,15 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
     '#default_value' => variable_get('islandora_solr_force_update_index_after_object_purge', 0),
   );
 
+  $form['solr_ajax_wrapper']['islandora_solr_technical_difficulties_message'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Solr unavailable message.'),
+    '#description' => t('When Solr throws an Exception this message is displayed to the users.'),
+    '#size' => 150,
+    '#weight' => 10,
+    '#default_value' => variable_get('islandora_solr_technical_difficulties_message', ISLANDORA_SOLR_DIFFICULTIES_MESSAGE),
+  );
+
   // Actions.
   $form['actions'] = array(
     '#type' => 'actions',
@@ -200,6 +209,7 @@ function _islandora_solr_admin_index_settings_submit($form, &$form_state) {
       variable_set('islandora_solr_url', $form_state['values']['islandora_solr_url']);
       variable_set('islandora_solr_request_handler', $form_state['values']['islandora_solr_request_handler']);
       variable_set('islandora_solr_force_update_index_after_object_purge', $form_state['values']['islandora_solr_force_update_index_after_object_purge']);
+      variable_set('islandora_solr_technical_difficulties_message', $form_state['values']['islandora_solr_technical_difficulties_message']);
       drupal_set_message(t('The Solr configuration options have been saved.'));
       break;
 
@@ -207,6 +217,7 @@ function _islandora_solr_admin_index_settings_submit($form, &$form_state) {
       variable_del('islandora_solr_url');
       variable_del('islandora_solr_request_handler');
       variable_del('islandora_solr_force_update_index_after_object_purge');
+      variable_del('islandora_solr_technical_difficulties_message');
       drupal_set_message(t('The configuration options have been reset to their default values.'));
       break;
   }
@@ -477,6 +488,7 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#size' => 5,
     '#description' => t('The minimum number of results required to display a facet'),
     '#default_value' => variable_get('islandora_solr_facet_min_limit', '2'),
+    '#required' => TRUE,
   );
   $form['islandora_solr_tabs']['facet_settings']['islandora_solr_facet_soft_limit'] = array(
     '#type' => 'textfield',
@@ -484,13 +496,15 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#size' => 5,
     '#description' => t('The number of results which should be displayed initially. If there are more, then the a "Show more" button will allow the rest up to the value below to be displayed. Use 0 to disable.'),
     '#default_value' => variable_get('islandora_solr_facet_soft_limit', '10'),
+    '#required' => TRUE,
   );
   $form['islandora_solr_tabs']['facet_settings']['islandora_solr_facet_max_limit'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximum limit'),
     '#size' => 5,
-    '#description' => t('The maximum number of terms that should be returned to the user. For example, if there are 100 possible subjects in a faceted result you may wish to only return the top 10.'),
+    '#description' => t('The maximum number of terms that should be returned to the user. For example, if there are 100 possible subjects in a faceted result you may wish to only return the top 10. Use -1 to show all facets.'),
     '#default_value' => variable_get('islandora_solr_facet_max_limit', '20'),
+    '#required' => TRUE,
   );
 
   // Advanced search block.

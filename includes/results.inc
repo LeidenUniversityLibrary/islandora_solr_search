@@ -74,13 +74,13 @@ class IslandoraSolrResults {
     $elements['solr_pager'] = theme('pager', array(
       'tags' => NULL,
       'element' => 0,
-      'parameters' => NULL,
+      'parameters' => array(),
       'quantity' => 5,
     ));
 
     // Debug (will be removed).
     $elements['solr_debug'] = '';
-    if (variable_get('islandora_solr_debug_mode', 0)) {
+    if (variable_get('islandora_solr_debug_mode', 0) && user_access('view islandora solr debug')) {
       $elements['solr_debug'] = $this->printDebugOutput($islandora_solr_result);
     }
 
@@ -226,6 +226,7 @@ class IslandoraSolrResults {
           'attr' => array(),
           'path' => $path_minus,
           'query' => $query_minus,
+          'label' => '(-)',
         ),
       );
       $attr_minus =& $attributes['minus']['attr'];
@@ -240,7 +241,7 @@ class IslandoraSolrResults {
       // XXX: We are not using l() because of active classes:
       // @see http://drupal.org/node/41595
       // Create link.
-      $query_list[] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>(-)</a> ' . check_plain($query_value);
+      $query_list[] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>' . $attributes['minus']['label'] . '</a> ' . check_plain($query_value);
 
       // Add wrap and list.
       $output .= '<div class="islandora-solr-query-wrap">';
@@ -300,6 +301,7 @@ class IslandoraSolrResults {
             'attr' => array(),
             'path' => $path,
             'query' => $query_minus,
+            'label' => '(-)',
           ),
         );
         $attr_minus =& $attributes['minus']['attr'];
@@ -314,7 +316,7 @@ class IslandoraSolrResults {
         // XXX: We are not using l() because of active classes:
         // @see http://drupal.org/node/41595
         // Create link.
-        $filter_list[] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>(-)</a> ' . $symbol . ' ' . check_plain($filter_string);
+        $filter_list[] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>' . $attributes['minus']['label'] . '</a> ' . $symbol . ' ' . check_plain($filter_string);
 
       }
 
@@ -732,8 +734,8 @@ class IslandoraSolrFacets {
    */
   public static function init($islandora_solr_query) {
     self::$islandoraSolrQuery = $islandora_solr_query;
-    self::$facet_fields = isset($islandora_solr_query->islandoraSolrResult) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields'] : array();
-    self::$facet_queries = isset($islandora_solr_query->islandoraSolrResult) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries'] : array();
+    self::$facet_fields = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields'] : array();
+    self::$facet_queries = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries'] : array();
     // XXX: isset() checking, as newer Solrs (7) won't return a value.
     self::$facet_dates = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates'] : array();
     // XXX: isset() checking, as older Solrs (before 3.1) won't return a value.
@@ -1111,15 +1113,18 @@ class IslandoraSolrFacets {
       $attributes = array(
         'link' => array(
           'path' => $path,
+          'label' => $bucket,
         ),
         'plus' => array(
           'path' => $path,
+          'label' => '+',
         ),
         'minus' => array(
           'path' => $path,
+          'label' => '-',
         ),
       );
-      $attributes['link']['attr'] = $attributes['minus']['attr'] = $attributes['plus']['attr'] = array('rel' => 'nofollow');
+      $attributes['link']['attr'] = $attributes['minus']['attr'] = $attributes['plus']['attr'] = array('rel' => 'nofollow', 'title' => $bucket);
 
       $attributes['link']['attr']['href'] = $attributes['plus']['attr']['href'] = url($path, array('query' => $query_plus));
       $attributes['link']['query'] = $attributes['plus']['query'] = $query_plus;
@@ -1137,10 +1142,10 @@ class IslandoraSolrFacets {
       // XXX: We are not using l() because of active classes:
       // @see http://drupal.org/node/41595
       // Create link.
-      $link['link'] = '<a' . drupal_attributes($attributes['link']['attr']) . '>' . $bucket . '</a>';
+      $link['link'] = '<a' . drupal_attributes($attributes['link']['attr']) . '>' . $attributes['link']['label'] . '</a>';
       $link['count'] = $count;
-      $link['link_plus'] = '<a' . drupal_attributes($attributes['plus']['attr']) . '>+</a>';
-      $link['link_minus'] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>-</a>';
+      $link['link_plus'] = '<a' . drupal_attributes($attributes['plus']['attr']) . '>' . $attributes['plus']['label'] . '</a>';
+      $link['link_minus'] = '<a' . drupal_attributes($attributes['minus']['attr']) . '>' . $attributes['minus']['label'] . '</a>';
       $buckets[] = $link;
     }
 
