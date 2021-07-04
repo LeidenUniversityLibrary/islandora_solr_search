@@ -254,9 +254,17 @@ class IslandoraSolrResults {
       $output .= '</div>';
 
     }
-
     // Get filter values.
     if (!empty($fq)) {
+      $filter2facetquery = array();
+      foreach ($this->facetFieldSettings as $facetfield => $settings) {
+        if (isset($settings['solr_field_settings']['facet_queries'])) {
+          foreach ($settings['solr_field_settings']['facet_queries'] as $label => $query) {
+            $filter2facetquery[$query] = $label;
+            $filter2facetquery["-($query)"] = $label;
+          }
+        }
+      } 
       // Set list variables.
       $filter_list = array();
       foreach ($fq as $key => $filter) {
@@ -268,7 +276,12 @@ class IslandoraSolrResults {
         else {
           $symbol = '=';
         }
-        $filter_string = $this->formatFilter($filter, $islandora_solr_query);
+        if (isset($filter2facetquery[$filter])) {
+          $filter_string = $filter2facetquery[$filter];
+        }
+        else {
+          $filter_string = $this->formatFilter($filter, $islandora_solr_query);
+        }
         // Pull out filter (for exclude link).
         $query_minus = array();
         $f_x['f'] = array_diff($params['f'], array($filter));
@@ -532,8 +545,8 @@ class IslandoraSolrResults {
       // Split the filter into field and value.
       $filter_split = preg_split(ISLANDORA_SOLR_QUERY_FIELD_VALUE_SPLIT_REGEX, $filter, 2);
       // Trim brackets.
-      $filter_split[1] = trim($filter_split[1], "\"");
-      $solr_field = ltrim($filter_split[0], '-');
+      $filter_split[1] = trim($filter_split[1], "\")");
+      $solr_field = ltrim($filter_split[0], '-(');
       // If value is date.
       if (isset($islandora_solr_query->solrParams['facet.date']) && in_array($solr_field, $islandora_solr_query->solrParams['facet.date'])) {
         // Check date format setting.
@@ -666,6 +679,8 @@ class IslandoraSolrFacets {
   // Date or integer range facet results (Solr 3.1).
   public static $facet_ranges;
 
+  public static $facet_queries;
+
   public static $facet_fields_settings;
   public static $facet_fields_settings_simple;
   // Rename?
@@ -720,6 +735,7 @@ class IslandoraSolrFacets {
   public static function init($islandora_solr_query) {
     self::$islandoraSolrQuery = $islandora_solr_query;
     self::$facet_fields = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_fields'] : array();
+    self::$facet_queries = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_queries'] : array();
     // XXX: isset() checking, as newer Solrs (7) won't return a value.
     self::$facet_dates = isset($islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates']) ? $islandora_solr_query->islandoraSolrResult['facet_counts']['facet_dates'] : array();
     // XXX: isset() checking, as older Solrs (before 3.1) won't return a value.
@@ -794,6 +810,9 @@ class IslandoraSolrFacets {
       $this->facet_type = 'facet_ranges';
       $this->date_range = islandora_solr_is_date_field($facet_field);
     }
+    if ($this->facet_type === NULL && isset($this->settings['solr_field_settings']['facet_queries'])) {
+      $this->facet_type = 'facet_queries';
+    }
   }
 
   /**
@@ -812,6 +831,16 @@ class IslandoraSolrFacets {
     }
     if ($facet_type == 'facet_ranges') {
       $this->results = self::$facet_ranges[$facet_field];
+    }
+    if ($facet_type == 'facet_queries') {
+      $query2label = array_flip($this->settings['solr_field_settings']['facet_queries']);
+      $results = array();
+      foreach (self::$facet_queries as $query => $count) {
+        if (isset($query2label[$query])) {
+          $results[$query2label[$query]] = $count;
+        }
+      }
+      $this->results = $results;
     }
   }
 
@@ -833,6 +862,9 @@ class IslandoraSolrFacets {
     }
     if ($facet_type == 'facet_ranges') {
       $this->processFacetRanges();
+    }
+    if ($facet_type == 'facet_queries') {
+      $this->processFacetQueries();
     }
   }
 
@@ -892,6 +924,21 @@ class IslandoraSolrFacets {
    */
   public function processFacetRanges() {
 
+  }
+
+  /**
+   * Process facet queries.
+   */
+  public function processFacetQueries() {
+    $prepared_facet_fields = array();
+    foreach ($this->results as $title => $count) {
+      $prepared_facet_fields[] = array(
+        'count' => $count,
+        'filter' => $this->settings['solr_field_settings']['facet_queries'][$title],
+        'bucket' => $title,
+      );
+    };
+    $this->renderText($prepared_facet_fields);
   }
 
   /**
@@ -1060,7 +1107,7 @@ class IslandoraSolrFacets {
       }
       // Merge recursively to add new filter parameter.
       $query_plus = array_merge_recursive($params, array('f' => array($filter)));
-      $query_minus = array_merge_recursive($params, array('f' => array('-' . $filter)));
+      $query_minus = array_merge_recursive($params, array('f' => array('-(' . $filter . ')')));
 
       // Set basic attributes.
       $attributes = array(
