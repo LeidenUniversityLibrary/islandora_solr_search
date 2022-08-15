@@ -125,7 +125,7 @@ class IslandoraSolrResultsRSS extends IslandoraSolrResults {
     $is_datastream = in_array($dsid, $doc['datastreams']);
 
     if ($is_datastream) {
-      $enclosure_url = $object_url . '/datastream/' . $dsid;
+      $enclosure_url = url('islandora/object/' . htmlspecialchars($doc['PID'] . '/datastream/' . $dsid, ENT_QUOTES, 'utf-8'), array('absolute' => TRUE));
     }
 
     $rss_source = variable_get('site_name', "Default site name");
@@ -141,8 +141,8 @@ class IslandoraSolrResultsRSS extends IslandoraSolrResults {
         'value' => ($rss_item['author'] && isset($doc[$rss_item['author']])) ? $doc[$rss_item['author']] : ''),
       array(
         'key' => 'guid',
-        'value' => $doc['PID'],
-        'attributes' => array('isPermaLink' => 'false')),
+        'value' => isset($doc['mods_identifier_hdl_ms']) ? $doc['mods_identifier_hdl_ms'] : $doc['PID'],
+        'attributes' => array('isPermaLink' => isset($doc['mods_identifier_hdl_ms']) ? 'true' : 'false')),
       array(
         'key' => 'pubDate',
         'value' => ($rss_item['pubDate'] && isset($doc[$rss_item['pubDate']])) ? $doc[$rss_item['pubDate']] : ''),
@@ -158,11 +158,15 @@ class IslandoraSolrResultsRSS extends IslandoraSolrResults {
     );
 
     if ($is_datastream) {
+      $solrmime = 'fedora_datastream_latest_' . $dsid . '_MIMETYPE_s';
+      $mimetype = isset($doc[$solrmime]) ? $doc[$solrmime] : '';
+      $solrsize = 'fedora_datastream_latest_' . $dsid . '_SIZE_s';
+      $filesize = isset($doc[$solrsize]) ? $doc[$solrsize] : '';
       $result['items'][] = array(
         'key' => 'enclosure',
         'value' => '', 'attributes' => array(
-          'url' => $enclosure_url, 'length' => '',
-          'type' => ''));
+          'url' => $enclosure_url, 'length' => $filesize,
+          'type' => $mimetype));
     }
 
     return $result;

@@ -203,21 +203,34 @@ class IslandoraSolrQueryProcessor {
 
     // Set facet parameters.
     $facet_array = islandora_solr_get_fields('facet_fields', TRUE, FALSE, TRUE);
-    $facet_fields = implode(",", array_keys($facet_array));
+    $facet_fields = array();
+    $facet_queries = array();
+    foreach ($facet_array as $field => $options) {
+      if (isset($options['solr_field_settings']['facet_queries'])) {
+        foreach ($options['solr_field_settings']['facet_queries'] as $label => $query) {
+          $facet_queries[] = $query;
+        }
+      }
+      else {
+        $facet_fields[] = $field;
+      }
+    }
 
     // Set params.
-    if (count($facet_array) > 0) {
+    if (count($facet_array) > 0 || count($facet_queries) > 0) {
       $params_array = array(
         'facet' => 'true',
         'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
         'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
-        'facet.field' => explode(',', $facet_fields),
+        'facet.field' => $facet_fields,
       );
     }
     else {
       $params_array = array();
     }
-
+    if (count($facet_queries) > 0) {
+      $params_array['facet.query'] = $facet_queries;
+    }
     $request_handler = variable_get('islandora_solr_request_handler', FALSE);
     if ($request_handler) {
       $params_array['qt'] = $request_handler;
@@ -358,6 +371,21 @@ class IslandoraSolrQueryProcessor {
         // Put our "qf" in if we are configured to, or we have none from the
         // request handler.
         $this->solrParams['qf'] = variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type');
+      }
+      $dismaxoptions = array(
+        'pf' => 'islandora_solr_phrase_fields',
+        'qf' => 'islandora_solr_query_phrase_slop',
+        'mm' => 'islandora_solr_minimum_should_match',
+        'ps' => 'islandora_solr_phrase_slop',
+        'tie' => 'islandora_solr_tie_breaker',
+        'bq' => 'islandora_solr_boost_query',
+        'bf' => 'islandora_solr_boost_functions',
+      );
+      foreach ($dismaxoptions as $solrparam => $varname) {
+        $value = variable_get($varname, FALSE);
+        if ($value !== FALSE && strlen($value) > 0) {
+          $this->solrParams[$solrparam] = $value;
+        }
       }
     }
 
