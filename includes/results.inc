@@ -268,6 +268,9 @@ class IslandoraSolrResults {
       // Set list variables.
       $filter_list = array();
       foreach ($fq as $key => $filter) {
+        if (empty($filter)) {
+          continue;
+        }
         // Check for exclude filter.
         if ($filter[0] == '-') {
           // Not equal sign.
@@ -384,6 +387,9 @@ class IslandoraSolrResults {
     if (!empty($fq)) {
       $f['f'] = array();
       foreach ($fq as $key => $filter) {
+        if (empty($filter)) {
+          continue;
+        }
         // Check for exclude filter.
         $exclude = FALSE;
         if ($filter[0] == '-') {
