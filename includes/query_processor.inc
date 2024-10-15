@@ -453,7 +453,37 @@ class IslandoraSolrQueryProcessor {
             'limit' => $this->solrLimit,
             'params' => $this->solrParams,
             'params_internal' => $this->internalSolrParams,
+            'time' => time(),
           );
+          // Limit the size of the islandora_solr_search_nav_params array in session to 100, because otherwise it might use to much space.
+          if (count($_SESSION['islandora_solr_search_nav_params']) > 100) {
+            $oldest_time = time();
+            $oldest_id = NULL;
+            $first_id = NULL;
+            foreach ($_SESSION['islandora_solr_search_nav_params'] as $some_id => $some_value) {
+              if (!isset($first_id)) {
+                $first_id = $some_id;
+              }
+              if (isset($some_value['time'])) {
+                if ($some_value['time'] < $oldest_time) {
+                  $oldest_time = $some_value['time'];
+                  $oldest_id = $some_id;
+                }
+              }
+              else {
+                // No time is found, so this must be an old session from before this code change. Do not try to find an older nav_params.
+                $oldest_id = NULL;
+                break;
+              }
+            }
+            if (isset($oldest_id)) {
+              unset($_SESSION['islandora_solr_search_nav_params'][$oldest_id]);
+            }
+            else {
+              // An oldest nav_params could not be found, so delete the first one, as this ought to be the oldest.
+              unset($_SESSION['islandora_solr_search_nav_params'][$first_id]);
+            }
+          }
 
           $url_params = array(
             'solr_nav' => array(
